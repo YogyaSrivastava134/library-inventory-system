@@ -5,20 +5,24 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
 
+/**
+ * Main presentation controller providing an interactive CLI experience.
+ * Leverages InputValidator for robust, exception-immune user interaction.
+ */
 public class LibraryApp {
     private static final Scanner scanner = new Scanner(System.in);
-    private static final LibraryService libraryService = new LibraryService();
+    private static final LibraryService libraryService = new LibraryService(new InMemoryBookRepository());
 
     public static void main(String[] args) {
         preloadSampleData();
         boolean running = true;
         System.out.println("=====================================================");
-        System.out.println("   WELCOME TO THE LIBRARY BOOK INVENTORY SYSTEM      ");
+        System.out.println("   REFACTORED LIBRARY BOOK INVENTORY SYSTEM (v2.0)  ");
         System.out.println("=====================================================");
 
         while (running) {
             displayMenu();
-            int choice = readIntegerInput("Enter your choice (1-6): ", 1, 6);
+            int choice = InputValidator.readIntegerInput(scanner, "Enter your choice (1-6): ", 1, 6);
             switch (choice) {
                 case 1 -> handleAddBook();
                 case 2 -> handleListAllBooks();
@@ -26,7 +30,7 @@ public class LibraryApp {
                 case 4 -> handleUpdateBook();
                 case 5 -> handleDeleteBook();
                 case 6 -> {
-                    System.out.println("\nThank you for using the Library Inventory System. Goodbye!");
+                    System.out.println("\nThank you for using the Refactored Library System. Goodbye!");
                     running = false;
                 }
             }
@@ -46,20 +50,20 @@ public class LibraryApp {
 
     private static void handleAddBook() {
         System.out.println("\n--- [CREATE] Add New Book ---");
-        String isbn = readNonEmptyString("Enter ISBN (e.g., 978-0134685991): ");
+        String isbn = InputValidator.readNonEmptyString(scanner, "Enter ISBN (e.g., 978-0134685991): ");
         if (libraryService.findByIsbn(isbn).isPresent()) {
             System.out.println("Error: A book with ISBN '" + isbn + "' already exists.");
             return;
         }
-        String title = readNonEmptyString("Enter Book Title: ");
-        String author = readNonEmptyString("Enter Author Name: ");
-        int year = readIntegerInput("Enter Publication Year (1450-2026): ", 1450, 2026);
-        int copies = readIntegerInput("Enter Number of Available Copies: ", 0, 10000);
+        String title = InputValidator.readNonEmptyString(scanner, "Enter Book Title: ");
+        String author = InputValidator.readNonEmptyString(scanner, "Enter Author Name: ");
+        int year = InputValidator.readIntegerInput(scanner, "Enter Publication Year (1450-2026): ", 1450, 2026);
+        int copies = InputValidator.readIntegerInput(scanner, "Enter Number of Available Copies: ", 0, 10000);
 
         if (libraryService.addBook(new Book(isbn, title, author, year, copies))) {
-            System.out.println("Success: Book added to inventory successfully!");
+            System.out.println("Success: Book registered in inventory successfully!");
         } else {
-            System.out.println("Error: Failed to add book.");
+            System.out.println("Error: Failed to register book.");
         }
     }
 
@@ -77,15 +81,15 @@ public class LibraryApp {
     private static void handleSearchBooks() {
         System.out.println("\n--- [READ] Search Book ---");
         System.out.println("1. Search by ISBN\n2. Search by Title Substring");
-        int option = readIntegerInput("Select search option (1-2): ", 1, 2);
+        int option = InputValidator.readIntegerInput(scanner, "Select search option (1-2): ", 1, 2);
 
         if (option == 1) {
-            String isbn = readNonEmptyString("Enter exact ISBN: ");
+            String isbn = InputValidator.readNonEmptyString(scanner, "Enter exact ISBN: ");
             Optional<Book> result = libraryService.findByIsbn(isbn);
             if (result.isPresent()) renderTable(List.of(result.get()));
             else System.out.println("No book found with ISBN: " + isbn);
         } else {
-            String keyword = readNonEmptyString("Enter Title keyword: ");
+            String keyword = InputValidator.readNonEmptyString(scanner, "Enter Title keyword: ");
             List<Book> results = libraryService.searchByTitle(keyword);
             if (results.isEmpty()) System.out.println("No books matching keyword '" + keyword + "' found.");
             else renderTable(results);
@@ -94,7 +98,7 @@ public class LibraryApp {
 
     private static void handleUpdateBook() {
         System.out.println("\n--- [UPDATE] Modify Book Information ---");
-        String isbn = readNonEmptyString("Enter ISBN of book to update: ");
+        String isbn = InputValidator.readNonEmptyString(scanner, "Enter ISBN of book to update: ");
         Optional<Book> optionalBook = libraryService.findByIsbn(isbn);
 
         if (optionalBook.isEmpty()) {
@@ -108,18 +112,18 @@ public class LibraryApp {
 
         System.out.println("\n(Press ENTER to leave a field unchanged)");
         System.out.print("Enter New Title [" + existing.getTitle() + "]: ");
-        String newTitle = scanner.nextLine().trim();
+        String newTitle = scanner.nextLine().strip();
 
         System.out.print("Enter New Author [" + existing.getAuthor() + "]: ");
-        String newAuthor = scanner.nextLine().trim();
+        String newAuthor = scanner.nextLine().strip();
 
         System.out.print("Enter New Publication Year [" + existing.getPublicationYear() + "]: ");
-        String yearInput = scanner.nextLine().trim();
-        int newYear = yearInput.isEmpty() ? -1 : parseSafeInt(yearInput, existing.getPublicationYear());
+        String yearInput = scanner.nextLine().strip();
+        int newYear = yearInput.isEmpty() ? -1 : InputValidator.parseSafeInt(yearInput, existing.getPublicationYear());
 
         System.out.print("Enter New Available Copies [" + existing.getAvailableCopies() + "]: ");
-        String copiesInput = scanner.nextLine().trim();
-        int newCopies = copiesInput.isEmpty() ? -1 : parseSafeInt(copiesInput, existing.getAvailableCopies());
+        String copiesInput = scanner.nextLine().strip();
+        int newCopies = copiesInput.isEmpty() ? -1 : InputValidator.parseSafeInt(copiesInput, existing.getAvailableCopies());
 
         if (libraryService.updateBook(isbn, newTitle, newAuthor, newYear, newCopies)) {
             System.out.println("Success: Book information updated successfully!");
@@ -130,7 +134,7 @@ public class LibraryApp {
 
     private static void handleDeleteBook() {
         System.out.println("\n--- [DELETE] Remove Book ---");
-        String isbn = readNonEmptyString("Enter ISBN of book to delete: ");
+        String isbn = InputValidator.readNonEmptyString(scanner, "Enter ISBN of book to delete: ");
         Optional<Book> optionalBook = libraryService.findByIsbn(isbn);
 
         if (optionalBook.isEmpty()) {
@@ -140,7 +144,7 @@ public class LibraryApp {
 
         renderTable(List.of(optionalBook.get()));
         System.out.print("Are you sure you want to delete this book? (Y/N): ");
-        if (scanner.nextLine().trim().equalsIgnoreCase("Y")) {
+        if (scanner.nextLine().strip().equalsIgnoreCase("Y")) {
             if (libraryService.deleteBook(isbn)) System.out.println("Success: Book removed from inventory.");
             else System.out.println("Error: Failed to delete book.");
         } else {
@@ -160,34 +164,6 @@ public class LibraryApp {
             System.out.printf(format, b.getIsbn(), title, author, b.getPublicationYear(), b.getAvailableCopies());
         }
         System.out.println(line);
-    }
-
-    private static String readNonEmptyString(String prompt) {
-        while (true) {
-            System.out.print(prompt);
-            String input = scanner.nextLine().trim();
-            if (!input.isEmpty()) return input;
-            System.out.println("Input cannot be empty. Please try again.");
-        }
-    }
-
-    private static int readIntegerInput(String prompt, int min, int max) {
-        while (true) {
-            System.out.print(prompt);
-            String input = scanner.nextLine().trim();
-            try {
-                int value = Integer.parseInt(input);
-                if (value >= min && value <= max) return value;
-                System.out.printf("Please enter a number between %d and %d.%n", min, max);
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid numeric input. Please enter an integer.");
-            }
-        }
-    }
-
-    private static int parseSafeInt(String input, int fallback) {
-        try { return Integer.parseInt(input); }
-        catch (NumberFormatException e) { return fallback; }
     }
 
     private static void preloadSampleData() {
