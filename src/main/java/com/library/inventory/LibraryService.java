@@ -1,45 +1,45 @@
 package com.library.inventory;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Service class managing core CRUD operations for library book inventory.
+ * Refactored domain service orchestrating library business logic.
+ * Enforces loose coupling by depending on the BookRepository interface (DIP).
  */
 public class LibraryService {
-    private final Map<String, Book> inventory = new LinkedHashMap<>();
+    private final BookRepository repository;
+
+    public LibraryService(BookRepository repository) {
+        this.repository = Objects.requireNonNull(repository, "BookRepository cannot be null.");
+    }
+
+    public LibraryService() {
+        this(new InMemoryBookRepository());
+    }
 
     public boolean addBook(Book book) {
-        if (book == null || inventory.containsKey(book.getIsbn())) {
-            return false;
-        }
-        inventory.put(book.getIsbn(), book);
-        return true;
+        return repository.save(book);
     }
 
     public Collection<Book> getAllBooks() {
-        return inventory.values();
+        return repository.findAll();
     }
 
     public Optional<Book> findByIsbn(String isbn) {
-        if (isbn == null) return Optional.empty();
-        return Optional.ofNullable(inventory.get(isbn.trim()));
+        return repository.findByIsbn(isbn);
     }
 
     public List<Book> searchByTitle(String keyword) {
-        List<Book> matches = new ArrayList<>();
-        if (keyword == null || keyword.trim().isEmpty()) return matches;
-        String lower = keyword.trim().toLowerCase();
-        for (Book book : inventory.values()) {
-            if (book.getTitle().toLowerCase().contains(lower)) {
-                matches.add(book);
-            }
+        if (keyword == null || keyword.isBlank()) {
+            return List.of();
         }
-        return matches;
+        String normalized = keyword.strip().toLowerCase();
+        return repository.findAll().stream()
+                .filter(b -> b.getTitle().toLowerCase().contains(normalized))
+                .toList();
     }
 
     public boolean updateBook(String isbn, String newTitle, String newAuthor, int newYear, int newCopies) {
@@ -47,20 +47,18 @@ public class LibraryService {
         if (opt.isEmpty()) return false;
 
         Book book = opt.get();
-        if (newTitle != null && !newTitle.trim().isEmpty()) book.setTitle(newTitle);
-        if (newAuthor != null && !newAuthor.trim().isEmpty()) book.setAuthor(newAuthor);
+        if (newTitle != null && !newTitle.isBlank()) book.setTitle(newTitle);
+        if (newAuthor != null && !newAuthor.isBlank()) book.setAuthor(newAuthor);
         if (newYear > 0) book.setPublicationYear(newYear);
         if (newCopies >= 0) book.setAvailableCopies(newCopies);
         return true;
     }
 
     public boolean deleteBook(String isbn) {
-        if (isbn == null || !inventory.containsKey(isbn.trim())) return false;
-        inventory.remove(isbn.trim());
-        return true;
+        return repository.deleteByIsbn(isbn);
     }
 
     public int getTotalBookCount() {
-        return inventory.size();
+        return repository.count();
     }
 }
